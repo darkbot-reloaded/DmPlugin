@@ -18,12 +18,19 @@ public class HangarChanger {
     private long lastStopChangeHangar = 0;
     private final Gui lostConnection;
     private final Gui logout;
+    private Map SELL_MAP;
+    private Map ACTIVE_MAP;
+    private HeroManager hero;
+
 
     public HangarChanger(Main m) {
         this.main = m;
         this.hangarManager = main.backpage.hangarManager;
         this.lostConnection = main.guiManager.lostConnection;
         this.logout = main.guiManager.logout;
+        this.SELL_MAP = main.starManager.byName("5-2");
+        this.ACTIVE_MAP = main.starManager.byName("5-3");
+        this.hero = main.hero;
     }
 
     public void updateHangarActive() {
@@ -50,7 +57,7 @@ public class HangarChanger {
     }
 
     public void disconnect(boolean stop) {
-        if (!lostConnection.visible && !logout.visible && !main.hero.locationInfo.isMoving()) {
+        if (((hero.map !=SELL_MAP&&hero.map ==ACTIVE_MAP)||(hero.map ==SELL_MAP&&hero.map !=ACTIVE_MAP)) && !logout.visible && !main.hero.locationInfo.isMoving()) {
             System.out.println("Disconnecting...");
             logout.show(true);
             if (stop) {

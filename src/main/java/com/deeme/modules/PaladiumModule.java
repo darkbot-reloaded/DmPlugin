@@ -41,6 +41,7 @@ public class PaladiumModule extends LootNCollectorModule implements Module, Conf
     private PalladiumConfig configPa;
 
     private Map SELL_MAP;
+    private Map ACTIVE_MAP;
 
     private List<BasePoint> bases;
     private OreTradeGui oreTrade;
@@ -89,6 +90,7 @@ public class PaladiumModule extends LootNCollectorModule implements Module, Conf
         super.install(main);
         this.main = main;
         this.SELL_MAP = main.starManager.byName("5-2");
+        this.ACTIVE_MAP = main.starManager.byName("5-3");
         this.hero = main.hero;
         this.drive = main.hero.drive;
         this.config = main.config;
@@ -127,7 +129,7 @@ public class PaladiumModule extends LootNCollectorModule implements Module, Conf
                     hangarChanger.reloadAfterDisconnect(true);
                 }
             }
-            if (!hangarChanger.isDisconnect() && currentStatus != State.DISCONNECTING && main.pingManager.ping > 0) {
+            if (!hangarChanger.isDisconnect() && currentStatus != State.DISCONNECTING && ((hero.map !=SELL_MAP&&hero.map ==ACTIVE_MAP)||(hero.map ==SELL_MAP&&hero.map !=ACTIVE_MAP))) {
                 main.setRunning(true);
                 hangarChanger.disconectTime = 0;
                 drive.stop(true);
@@ -216,9 +218,10 @@ public class PaladiumModule extends LootNCollectorModule implements Module, Conf
         if (hero.map != SELL_MAP) main.setModule(new MapModule()).setTarget(SELL_MAP);
         else bases.stream().filter(b -> b.locationInfo.isLoaded()).findFirst().ifPresent(base -> {
             if (drive.movingTo().distance(base.locationInfo.now) > 200) { // Move to base
-                double angle = base.locationInfo.now.angle(hero.locationInfo.now) + Math.random() * 0.2 - 0.1;
-                drive.move(Location.of(base.locationInfo.now, angle, 100 + (100 * Math.random())));
-            } else if (!hero.locationInfo.isMoving() && oreTrade.showTrade(true,base)
+                double angle = ThreadLocalRandom.current().nextDouble(Math.PI * 2);
+                double distance = 100.0 + ThreadLocalRandom.current().nextDouble(100.0);
+                drive.move(Location.of(base.locationInfo.now, angle, distance));
+            } else if (!hero.locationInfo.isMoving() && oreTrade.showTrade(true, base)
                     && System.currentTimeMillis() - 60_000 > sellClick) {
                 oreTrade.sellOre(OreTradeGui.Ore.PALLADIUM);
                 sellClick = System.currentTimeMillis();
