@@ -98,7 +98,7 @@ public class PaladiumModule extends LootNCollectorModule implements Module, Conf
         this.bases = main.mapManager.entities.basePoints;
         this.oreTrade = main.guiManager.oreTrade;
         this.hangarManager = main.backpage.hangarManager;
-        this.hangarChanger = new HangarChanger(main);
+        this.hangarChanger = new HangarChanger(main, SELL_MAP, ACTIVE_MAP);
         currentStatus = State.WAIT;
     }
 
@@ -129,7 +129,7 @@ public class PaladiumModule extends LootNCollectorModule implements Module, Conf
                     hangarChanger.reloadAfterDisconnect(true);
                 }
             }
-            if (!hangarChanger.isDisconnect() && currentStatus != State.DISCONNECTING && ((hero.map !=SELL_MAP&&hero.map ==ACTIVE_MAP)||(hero.map ==SELL_MAP&&hero.map !=ACTIVE_MAP))) {
+            if (!hangarChanger.isDisconnect() && currentStatus != State.DISCONNECTING && (hero.map == SELL_MAP || hero.map == ACTIVE_MAP)) {
                 main.setRunning(true);
                 hangarChanger.disconectTime = 0;
                 drive.stop(true);
@@ -218,8 +218,8 @@ public class PaladiumModule extends LootNCollectorModule implements Module, Conf
         if (hero.map != SELL_MAP) main.setModule(new MapModule()).setTarget(SELL_MAP);
         else bases.stream().filter(b -> b.locationInfo.isLoaded()).findFirst().ifPresent(base -> {
             if (drive.movingTo().distance(base.locationInfo.now) > 200) { // Move to base
-                double angle = ThreadLocalRandom.current().nextDouble(Math.PI * 2);
-                double distance = 100.0 + ThreadLocalRandom.current().nextDouble(100.0);
+                double angle = Math.random() * Math.PI * 2;
+                double distance = 100 + Math.random() * 100;
                 drive.move(Location.of(base.locationInfo.now, angle, distance));
             } else if (!hero.locationInfo.isMoving() && oreTrade.showTrade(true, base)
                     && System.currentTimeMillis() - 60_000 > sellClick) {

@@ -3,9 +3,14 @@ package com.deeme.types.backpage;
 import com.github.manolo8.darkbot.Main;
 import com.github.manolo8.darkbot.backpage.HangarManager;
 import com.github.manolo8.darkbot.backpage.hangar.Hangar;
+import com.github.manolo8.darkbot.core.manager.HeroManager;
 import com.github.manolo8.darkbot.core.objects.Gui;
+import com.github.manolo8.darkbot.core.objects.Map;
 import com.github.manolo8.darkbot.modules.DisconnectModule;
 import com.github.manolo8.darkbot.utils.Time;
+
+import java.util.Arrays;
+import java.util.List;
 
 import static com.github.manolo8.darkbot.Main.API;
 
@@ -18,18 +23,16 @@ public class HangarChanger {
     private long lastStopChangeHangar = 0;
     private final Gui lostConnection;
     private final Gui logout;
-    private Map SELL_MAP;
-    private Map ACTIVE_MAP;
-    private HeroManager hero;
+    private final HeroManager hero;
+    private final List<Map> maps;
 
 
-    public HangarChanger(Main m) {
+    public HangarChanger(Main m, Map... maps) {
         this.main = m;
         this.hangarManager = main.backpage.hangarManager;
         this.lostConnection = main.guiManager.lostConnection;
         this.logout = main.guiManager.logout;
-        this.SELL_MAP = main.starManager.byName("5-2");
-        this.ACTIVE_MAP = main.starManager.byName("5-3");
+        this.maps = maps == null || maps.length == 0 ? null : Arrays.asList(maps);
         this.hero = main.hero;
     }
 
@@ -57,7 +60,8 @@ public class HangarChanger {
     }
 
     public void disconnect(boolean stop) {
-        if (((hero.map !=SELL_MAP&&hero.map ==ACTIVE_MAP)||(hero.map ==SELL_MAP&&hero.map !=ACTIVE_MAP)) && !logout.visible && !main.hero.locationInfo.isMoving()) {
+        if (hero.map.id > 0 && (maps == null || maps.contains(hero.map))
+                && !logout.visible && !main.hero.locationInfo.isMoving()) {
             System.out.println("Disconnecting...");
             logout.show(true);
             if (stop) {
