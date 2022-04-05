@@ -39,6 +39,7 @@ public class HangarChanger {
     public void updateHangarActive() {
         try {
             hangarManager.updateHangarList();
+            hangarManager.updateCurrentHangar();
             activeHangar = hangarManager.getHangarList().getData().getRet().getHangars().stream()
                     .filter(Hangar::isActive)
                     .map(Hangar::getHangarId)
@@ -46,16 +47,6 @@ public class HangarChanger {
                     .orElse(null);
         } catch (Exception ignored) {
             activeHangar = null;
-        }
-    }
-
-    public void changeHangar(Integer hangar, boolean inBase) {
-        if ((inBase || lostConnection.visible) && hangar != null) {
-            System.out.println("Hangar change to: " + hangar);
-            if (changeHangar(hangar)) {
-                activeHangar = null;
-                updateHangarActive();
-            }
         }
     }
 
@@ -106,6 +97,18 @@ public class HangarChanger {
             System.out.println("Set Disconnect Module: "+ reason);
             main.setModule(new DisconnectModule(null, reason));
         }
+    }
+
+    public boolean changeHangar(Integer hangar, boolean inBase) {
+        if ((inBase || lostConnection.visible) && hangar != null) {
+            System.out.println("Hangar change to: " + hangar);
+            if (changeHangar(hangar)) {
+                activeHangar = null;
+                updateHangarActive();
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean changeHangar(Integer hangarId) {

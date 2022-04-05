@@ -82,9 +82,11 @@ public class SentinelModule implements Module, Configurable<SentinelModule.Senti
         main.guiManager.pet.setEnabled(true);
         if (main.guiManager.group.group != null && main.guiManager.group.group.isValid()) {
             if (shipAround()) {
-                if (!isAttacking() && main.hero.target != sentinel) {
+                if (!isAttacking() && main.hero.getTarget() != sentinel) {
                     main.hero.roamMode();
-                    drive.move(sentinel);
+                    if (drive.getDistanceBetween(main.hero.locationInfo, sentinel.locationInfo) > 300) {
+                        drive.move(sentinel);
+                    }
                 } else {
                     drive.move(Location.of(attacker.target.locationInfo.now, rnd.nextInt(360), attacker.target.npcInfo.radius));
                 }
@@ -97,11 +99,13 @@ public class SentinelModule implements Module, Configurable<SentinelModule.Senti
     }
 
     private boolean isAttacking() {
+        if (this.npcs == null) { return false; }
         if ((attacker.target = this.npcs.stream()
                 .filter(s -> sentinel.isAttacking(s))
                 .findAny().orElse(null)) == null) {
             return false;
         }
+
         main.hero.attackMode(attacker.target);
         attacker.doKillTargetTick();
 
@@ -109,6 +113,7 @@ public class SentinelModule implements Module, Configurable<SentinelModule.Senti
     }
 
     private boolean shipAround() {
+        if (this.ships == null) { return false; } 
         sentinel = this.ships.stream()
                 .filter(ship -> (sConfig.SENTINEL_TAG.has(main.config.PLAYER_INFOS.get(ship.id))))
                 .findAny().orElse(null);
