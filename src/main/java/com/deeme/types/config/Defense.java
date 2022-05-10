@@ -20,6 +20,9 @@ public class Defense {
     @Option(value = "Help Group Members", description = "Help group members defend themselves")
     public boolean helpGroup = true;
 
+    @Option(value = "Go to Group Members", description = "If any member is attacked on your map it goes to the member.")
+    public boolean goToGroup = false;
+
     @Option(value = "Help everyone", description = "Help all those who are not enemies")
     public boolean helpEveryone = true;
 
@@ -34,8 +37,8 @@ public class Defense {
     @Option("Ammo")
     public Character ammoKey;
 
-    @Option("RSB-75")
-    public Character RSB;
+    @Option(value = "RSB-75", description = "Use RSB-75")
+    public boolean useRSB = false;
 
     public @Option(key = "config.loot.sab") Config.Loot.Sab SAB = new Config.Loot.Sab();
 
