@@ -75,8 +75,9 @@ public class AutoChangeMap implements Task, Configurable<ChangeMapConfig> {
 
     @Override
     public void onTickTask() {
-        if (hero.getMap().isGG())
+        if (hero.getMap().isGG()) {
             return;
+        }
 
         if ((firstTick || (waitingTimeNextMap != 0 && waitingTimeNextMap <= System.currentTimeMillis()) ||
                 (mapMaxDeaths > 0 && repair.getDeathAmount() >= mapMaxDeaths)
@@ -126,7 +127,9 @@ public class AutoChangeMap implements Task, Configurable<ChangeMapConfig> {
             if (i == mapChosse) {
                 if (chosseMap.getValue().time > 0) {
                     waitingTimeNextMap = System.currentTimeMillis() +
-                            (chosseMap.getValue().time + rand.nextInt(10)) * 60000L;
+                            (chosseMap.getValue().time + rand.nextInt(5)) * 60000L;
+                } else {
+                    waitingTimeNextMap = 0;
                 }
 
                 if (chosseMap.getValue().deaths > 0) {
@@ -139,9 +142,10 @@ public class AutoChangeMap implements Task, Configurable<ChangeMapConfig> {
                     map = star.getByName(chosseMap.getKey()).getId();
                     api.requireAPI(ConfigAPI.class).requireConfig("general.working_map").setValue(map);
                 } catch (MapNotFoundException e) {
+                    System.out.println("Map not found" + e.getMessage());
                 }
 
-                return;
+                break;
             }
             i++;
         }

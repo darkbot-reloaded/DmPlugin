@@ -1,4 +1,4 @@
-package com.deeme.modules;
+package com.deeme.modules.temporal;
 
 import java.util.Collection;
 import java.util.List;
@@ -16,6 +16,7 @@ import eu.darkbot.api.game.entities.Entity;
 import eu.darkbot.api.game.entities.Npc;
 import eu.darkbot.api.game.entities.Player;
 import eu.darkbot.api.game.entities.Ship;
+import eu.darkbot.api.game.group.GroupMember;
 import eu.darkbot.api.game.items.SelectableItem.Special;
 import eu.darkbot.api.game.other.EntityInfo.Diplomacy;
 import eu.darkbot.api.managers.BotAPI;
@@ -80,19 +81,12 @@ public class DefenseModule extends TemporalModule {
 
     @Override
     public void onTickModule() {
-        if (isUnderAttack()) {
-            try {
+        try {
+            if (isUnderAttack()) {
                 setConfigToUse();
                 shipAttacker.tryLockAndAttack();
 
                 shipAttacker.useKeyWithConditions(defenseConfig.ability, null);
-                if (defenseConfig.useBestRocket) {
-                    shipAttacker.changeRocket();
-                }
-
-                if (defenseConfig.useAbility) {
-                    shipAttacker.useHability();
-                }
 
                 shipAttacker.useKeyWithConditions(defenseConfig.ability, null);
                 shipAttacker.useKeyWithConditions(defenseConfig.ISH, Special.ISH_01);
@@ -100,51 +94,38 @@ public class DefenseModule extends TemporalModule {
                 shipAttacker.useKeyWithConditions(defenseConfig.PEM, Special.EMP_01);
                 shipAttacker.useKeyWithConditions(defenseConfig.otherKey, null);
                 shipAttacker.tryAttackOrFix();
-                switch (defenseConfig.newMovementMode) {
-                    case 0:
-                        safetyFinder.tick();
-                        break;
-                    case 1:
-                        shipAttacker.vsMove();
-                        break;
-                    case 2:
-                        if (!movement.isMoving() || movement.isOutOfMap()) {
-                            movement.moveRandom();
-                        }
-                        break;
-                    case 3:
-                        if (heroapi.getHealth().hpPercent() <= repairHpRange.getValue().getMin()) {
-                            safetyFinder.tick();
-                        } else {
-                            shipAttacker.vsMove();
-                        }
-                        break;
-                }
-            } catch (Exception e) {
-                System.out.println(e);
-                e.printStackTrace();
+                movementLogic();
+            } else {
+                target = null;
+                super.goBack();
             }
-        } else {
-            target = null;
+        } catch (Exception e) {
+            System.out.println(e);
             super.goBack();
         }
     }
 
     private boolean isUnderAttack() {
         if (shipAttacker.getTarget() != null && shipAttacker.getTarget().isValid()
-                && shipAttacker.getTarget().getEntityInfo().isEnemy()) {
+                && shipAttacker.getTarget().getEntityInfo().isEnemy()
+                && (!defenseConfig.ignoreEnemies
+                        || shipAttacker.getTarget().getLocationInfo().distanceTo(heroapi) < 1500)) {
             return true;
         }
 
-        if (target != null && target.isValid()) {
+        if (target != null && target.isValid()
+                && (!defenseConfig.ignoreEnemies || target.getLocationInfo().distanceTo(heroapi) < 1500)) {
             shipAttacker.setTarget((Ship) target);
             return true;
         }
 
-        Entity newTarget = SharedFunctions.getAttacker(heroapi, players, heroapi);
-        if (newTarget != null && newTarget.isValid()) {
-            shipAttacker.setTarget((Ship) target);
-            return true;
+        Entity newTarget = null;
+        if (defenseConfig.respondAttacks) {
+            newTarget = SharedFunctions.getAttacker(heroapi, players, heroapi);
+            if (newTarget != null && newTarget.isValid()) {
+                shipAttacker.setTarget((Ship) target);
+                return true;
+            }
         }
 
         List<Player> ships = players.stream()
@@ -177,6 +158,12 @@ public class DefenseModule extends TemporalModule {
         }
         shipAttacker.resetDefenseData();
 
+        if (shipAttacker.getTarget() != null && shipAttacker.getTarget().isValid()
+                && (!defenseConfig.ignoreEnemies
+                        || shipAttacker.getTarget().getLocationInfo().distanceTo(heroapi) < 1500)) {
+            shipAttacker.setTarget(null);
+        }
+
         return shipAttacker.getTarget() != null;
     }
 
@@ -187,24 +174,63 @@ public class DefenseModule extends TemporalModule {
         }
 
         if (attackConfigLost && defenseConfig.useSecondConfig) {
-            shipAttacker.setMode(defenseConfig.secondConfig);
+            heroapi.setMode(defenseConfig.secondConfig);
         } else {
             switch (defenseConfig.newMovementMode) {
                 case 0:
-                    shipAttacker.setMode(configRun.getValue(), defenseConfig.useBestFormation);
+                    heroapi.setMode(configRun.getValue());
                     break;
                 case 1:
                 case 2:
-                    shipAttacker.setMode(configOffensive.getValue(), defenseConfig.useBestFormation);
+                    heroapi.setMode(configOffensive.getValue());
                     break;
                 case 3:
                     if (heroapi.getHealth().hpPercent() <= repairHpRange.getValue().getMin()) {
-                        shipAttacker.setMode(configRun.getValue(), defenseConfig.useBestFormation);
+                        heroapi.setMode(configRun.getValue());
                     } else {
-                        shipAttacker.setMode(configOffensive.getValue(), defenseConfig.useBestFormation);
+                        heroapi.setMode(configOffensive.getValue());
                     }
                     break;
             }
+        }
+    }
+
+    private void movementLogic() {
+        switch (defenseConfig.newMovementMode) {
+            case 0:
+                safetyFinder.tick();
+                break;
+            case 1:
+                shipAttacker.vsMove();
+                break;
+            case 2:
+                if (!movement.isMoving() || movement.isOutOfMap()) {
+                    movement.moveRandom();
+                }
+                break;
+            case 3:
+                if (heroapi.getHealth().hpPercent() <= repairHpRange.getValue().getMin()) {
+                    safetyFinder.tick();
+                } else {
+                    shipAttacker.vsMove();
+                }
+                break;
+            case 4:
+                if (heroapi.getHealth().hpPercent() <= repairHpRange.getValue().getMin()) {
+                    safetyFinder.tick();
+                } else {
+                    GroupMember groupMember = shipAttacker.getClosestMember();
+                    if (groupMember != null) {
+                        if (groupMember.getLocation().distanceTo(heroapi) < 1000) {
+                            shipAttacker.vsMove();
+                        } else {
+                            movement.moveTo(groupMember.getLocation());
+                        }
+                    } else {
+                        shipAttacker.vsMove();
+                    }
+                }
+                break;
         }
     }
 

@@ -85,6 +85,8 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
     protected long lastTimeAttack = 0;
     protected int groupLeaderID = 0;
 
+    protected Location lastSentinelLocation = null;
+
     private enum State {
         INIT("Init"),
         WAIT("Waiting for group invitation"),
@@ -163,8 +165,8 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
     @Override
     public String getStatus() {
         return safety.state() != SafetyFinder.Escaping.NONE ? safety.status()
-                : currentStatus.message + " | " + (isNpc ? "NPC" : "Other") + " | " + attacker.getStatus()
-                        + " | " + shipAttacker.getStatus();
+                : currentStatus.message + " | " + (isNpc ? "NPC" : "Player") + " | "
+                        + (isNpc ? attacker.getStatus() : shipAttacker.getStatus());
     }
 
     @Override
@@ -187,10 +189,17 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
                     if (isNpc) {
                         npcMove();
                     } else {
+                        shipAttacker.tryAttackOrFix();
                         shipAttacker.vsMove();
                     }
-                    if (sConfig.useAbility) {
-                        shipAttacker.useHability();
+
+                    if (sConfig.aggressiveFollow
+                            && heroapi.distanceTo(sentinel.getLocationInfo().getCurrent()) > sConfig.rangeToLider) {
+                        if (sConfig.goToMasterDestination && sentinel.getDestination().isPresent()) {
+                            movement.moveTo(sentinel.getDestination().get());
+                        } else {
+                            movement.moveTo(sentinel.getLocationInfo().getCurrent());
+                        }
                     }
                 } else if (sentinel.isValid()) {
                     currentStatus = State.FOLLOWING_MASTER;
@@ -211,11 +220,23 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
 
                     if (sConfig.autoCloak.autoCloakShip && !heroapi.isInvisible()
                             && lastTimeAttack < (System.currentTimeMillis()
-                                    + (sConfig.autoCloak.secondsOfWaiting * 1000))) {
+                                    - (sConfig.autoCloak.secondsOfWaiting * 1000))) {
                         shipAttacker.useSelectableReadyWhenReady(Cpu.CL04K);
                     }
                 } else {
                     sentinel = null;
+                }
+            } else if (sConfig.followByPortals && lastSentinelLocation != null) {
+                Portal portal = getNearestPortal(lastSentinelLocation);
+                if (portal != null) {
+                    GameMap m = portal.getTargetMap().isPresent() ? portal.getTargetMap().get() : null;
+                    if (m != null) {
+                        this.bot.setModule(api.requireInstance(MapModule.class)).setTarget(m);
+                    } else {
+                        lastSentinelLocation = null;
+                    }
+                } else {
+                    lastSentinelLocation = null;
                 }
             } else {
                 groupLeaderID = 0;
@@ -223,20 +244,20 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
                     goToLeader();
                 } else {
                     if (lastMap != heroapi.getMap().getId()) {
-                        maximumWaitingTime = System.currentTimeMillis() + 120000;
+                        maximumWaitingTime = System.currentTimeMillis() + 60000;
                     }
                     acceptGroupSentinel();
                     if (lastMap != heroapi.getMap().getId() && currentStatus != State.WAIT_GROUP_LOADING
                             && currentStatus != State.WAIT) {
                         currentStatus = State.WAIT_GROUP_LOADING;
-                        maximumWaitingTime = System.currentTimeMillis() + 120000;
+                        maximumWaitingTime = System.currentTimeMillis() + 60000;
                     } else if (maximumWaitingTime <= System.currentTimeMillis()) {
                         currentStatus = State.WAIT;
-
                         GameMap map = getWorkingMap();
                         if (!portals.isEmpty() && map != starSystem.getCurrentMap()) {
                             currentStatus = State.TRAVELING_TO_WORKING_MAP;
-                            this.bot.setModule(api.requireInstance(MapModule.class)).setTarget(map);
+                            this.bot.setModule(new MapModule(api, true))
+                                    .setTarget(map);
                         } else if (sConfig.collectorActive) {
                             collectorModule.onTickModule();
                         }
@@ -261,7 +282,7 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
             }
         }
 
-        if (target != null && !target.isValid()) {
+        if (target != null && (!target.isValid() || target.getId() == heroapi.getId())) {
             target = null;
         }
 
@@ -324,14 +345,19 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
                         (sConfig.followGroupLeader && groupLeaderID != 0 && ship.getId() == groupLeaderID)))
                 .findAny().orElse(null);
 
+        if (sentinel != null) {
+            lastSentinelLocation = sentinel.getLocationInfo().getCurrent();
+        }
+
         return sentinel != null;
     }
 
     private void goToLeader() {
         for (eu.darkbot.api.game.group.GroupMember m : group.getMembers()) {
-            if (m.getId() != heroapi.getId() && ((sConfig.MASTER_ID != 0 && m.getId() == sConfig.MASTER_ID) ||
-                    sConfig.SENTINEL_TAG.has(main.config.PLAYER_INFOS.get(m.getId())) ||
-                    (sConfig.followGroupLeader && m.isLeader()))) {
+            if (!m.isDead() && m.getId() != heroapi.getId()
+                    && ((sConfig.MASTER_ID != 0 && m.getId() == sConfig.MASTER_ID) ||
+                            sConfig.SENTINEL_TAG.has(main.config.PLAYER_INFOS.get(m.getId())) ||
+                            (sConfig.followGroupLeader && m.isLeader()))) {
                 if (m.isLeader()) {
                     groupLeaderID = m.getId();
                 }
@@ -377,11 +403,11 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
                 if (sentinelFormation != null) {
                     shipAttacker.setMode(config, sentinelFormation);
                 } else {
-                    shipAttacker.setMode(config, sConfig.useBestFormation);
+                    heroapi.setMode(config);
                 }
             }
         } else {
-            shipAttacker.setMode(config, sConfig.useBestFormation);
+            heroapi.setMode(config);
         }
     }
 
@@ -460,6 +486,13 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
                 .filter(n -> attacker.getTarget() != n)
                 .mapToDouble(n -> Math.max(0, n.getInfo().getRadius() - n.distanceTo(loc)))
                 .sum();
+    }
+
+    protected Portal getNearestPortal(Location loc) {
+        if (loc == null) {
+            return null;
+        }
+        return portals.stream().filter(p -> p.distanceTo(loc) < 500).findFirst().orElse(null);
     }
 
     protected void setNPCConfig(Location direction) {

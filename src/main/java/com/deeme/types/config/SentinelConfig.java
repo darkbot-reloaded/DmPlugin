@@ -31,14 +31,14 @@ public class SentinelConfig {
     @Option(value = "Copy master formation", description = "It will try to use the master's formation")
     public boolean copyMasterFormation = false;
 
-    @Option(value = "Auto choose the best formation", description = "It only works if you have disabled the copy master formation option.")
-    public boolean useBestFormation = true;
-
-    @Option(value = "Auto use the best ability", description = "Beta - Can use almost all abilities")
-    public boolean useAbility = false;
+    @Option(value = "Jumping through portals (New logic)", description = "If the sentinel disappears near a portal, it will jump. It's faster than waiting for the group info")
+    public boolean followByPortals = false;
 
     @Option(value = "Move to the location the master is going to", description = "It will go to the master's destination and not to where the master is.")
     public boolean goToMasterDestination = false;
+
+    @Option(value = "Aggressive follow up", description = "Always respect the following range to the leader. This will make the bot less human")
+    public boolean aggressiveFollow = false;
 
     public @Option(value = "Auto Attack", description = "Will attack even when the master is not attacking") AutoAttack autoAttack = new AutoAttack();
 

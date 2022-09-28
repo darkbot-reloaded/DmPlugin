@@ -9,6 +9,9 @@ public class PVPConfig {
     @Option(value = "Movement", description = "The ship will move")
     public boolean move = true;
 
+    @Option(value = "Recharge shields", description = "Recharge the shield for both Attack and Run configurations")
+    public boolean rechargeShields = true;
+
     @Option(value = "Enable collector", description = "It will use the collector module when it is not doing anything.")
     public boolean collectorActive = false;
 
@@ -18,18 +21,13 @@ public class PVPConfig {
     @Option(value = "Use the run configuration", description = "Will use the run setting if enemies flee")
     public boolean useRunConfig = true;
 
-    @Option(value = "Auto choose the best rocket", description = "Automatically switches missiles")
-    public boolean useBestRocket = true;
-
-    @Option(value = "Auto choose the best formation", description = "Automatically switches formations")
-    public boolean useBestFormation = true;
-
-    @Option(value = "Auto use the best ability", description = "Beta - Can use almost all abilities")
-    public boolean useAbility = false;
-
     @Option(value = "Maximum range for enemies", description = "Enemies above this range will not be attacked")
-    @Num(min = 0, max = 600, step = 50)
-    public int rangeForEnemies = 100;
+    @Num(min = 0, max = 1000, step = 50)
+    public int rangeForEnemies = 500;
+
+    @Option(value = "Maximum range for the enemy attacked", description = "Above this range the enemy is considered to have escaped.")
+    @Num(min = 1000, max = 4000, step = 100)
+    public int rangeForAttackedEnemy = 2000;
 
     @Option(value = "RCB-140 | RSB-75", description = "Use RCB-140 | RSB-75")
     public boolean useRSB = false;
@@ -44,5 +42,5 @@ public class PVPConfig {
 
     public @Option(value = "PEM-01", description = "PEM-01 Conditions") ExtraKeyConditions PEM = new ExtraKeyConditions();
 
-    public @Option(value = "Other Key", description = "Other Key Conditions") ExtraKeyConditions otherKey = new ExtraKeyConditions();
+    public @Option(value = "Auto Cloak", description = "It will automatically camouflage") AutoCloak autoCloak = new AutoCloak();
 }

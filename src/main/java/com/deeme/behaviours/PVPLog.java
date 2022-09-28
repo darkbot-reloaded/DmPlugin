@@ -74,6 +74,10 @@ public class PVPLog implements Behavior {
     private int enemyInitialShield = 0;
     private int enemyInitialHull = 0;
 
+    private String lastEffects = "";
+    private String lastEnemyEffects = "";
+    private int lastNPCID = 0;
+
     // Batle Data
     private boolean battleStart = false;
     ArrayList<Object> battleData = new ArrayList<Object>();
@@ -149,10 +153,30 @@ public class PVPLog implements Behavior {
         }
     }
 
+    @Override
+    public void onStoppedBehavior() {
+        if (showDev.getValue()) {
+            showDebugInfo();
+        }
+    }
+
     private void showDebugInfo() {
-        System.out.println("Hero effects | " + hero.getEffects().toString());
+        String effectsNow = hero.getEffects().toString();
+        if (!lastEffects.equals(effectsNow)) {
+            lastEffects = effectsNow;
+            System.out.println("Hero effects | " + hero.getEffects().toString());
+        }
+
         if (hero.getLocalTarget() != null) {
-            System.out.println("Target effects | " + hero.getLocalTarget().getEffects().toString());
+            if (lastNPCID != hero.getLocalTarget().getId()) {
+                lastNPCID = hero.getLocalTarget().getId();
+                System.out.println("Target ID: " + lastNPCID);
+            }
+            String effectsEnemyNow = hero.getLocalTarget().getEffects().toString();
+            if (!lastEnemyEffects.equals(effectsEnemyNow)) {
+                lastEnemyEffects = effectsEnemyNow;
+                System.out.println("Target effects | " + effectsEnemyNow);
+            }
         }
     }
 
@@ -221,7 +245,7 @@ public class PVPLog implements Behavior {
         lastEnemyData = enemyData;
     }
 
-    private Map getOurSpecialItems() {
+    private Map<String, Object> getOurSpecialItems() {
         Map<String, Object> ourItems = new HashMap<>();
 
         List<Item> usableItems = items.getItems(ItemCategory.SPECIAL_ITEMS).stream().filter(Item::isUsable)
@@ -229,7 +253,7 @@ public class PVPLog implements Behavior {
         for (Item item : usableItems) {
             try {
                 if (item.lastUseTime() != 0) {
-                    ourItems.put(item.getId(), item.getItemTimer());
+                    ourItems.put(item.getId(), item.getTimer());
                 }
             } catch (Exception e) {
                 System.out.println(e.getMessage());

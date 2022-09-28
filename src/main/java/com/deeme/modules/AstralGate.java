@@ -1,12 +1,12 @@
 package com.deeme.modules;
 
-import com.deeme.types.AmmoSupplier;
 import com.deeme.types.AstralPortalSupplier;
 import com.deeme.types.AstralShip;
-import com.deeme.types.RocketSupplier;
 import com.deeme.types.VerifierChecker;
 import com.deeme.types.backpage.Utils;
 import com.deeme.types.config.AstralConfig;
+import com.deeme.types.suppliers.AmmoSupplier;
+import com.deeme.types.suppliers.RocketSupplier;
 
 import eu.darkbot.api.PluginAPI;
 import eu.darkbot.api.config.ConfigSetting;
@@ -21,6 +21,7 @@ import eu.darkbot.api.game.entities.Portal;
 import eu.darkbot.api.game.enums.EntityEffect;
 import eu.darkbot.api.game.items.ItemFlag;
 import eu.darkbot.api.game.items.SelectableItem;
+import eu.darkbot.api.game.items.SelectableItem.Rocket;
 import eu.darkbot.api.game.other.GameMap;
 import eu.darkbot.api.game.other.Gui;
 import eu.darkbot.api.game.other.Locatable;
@@ -32,6 +33,7 @@ import eu.darkbot.api.managers.AuthAPI;
 import eu.darkbot.api.managers.BotAPI;
 import eu.darkbot.api.managers.ConfigAPI;
 import eu.darkbot.api.managers.EntitiesAPI;
+import eu.darkbot.api.managers.ExtensionsAPI;
 import eu.darkbot.api.managers.GameScreenAPI;
 import eu.darkbot.api.managers.HeroAPI;
 import eu.darkbot.api.managers.HeroItemsAPI;
@@ -118,7 +120,9 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
 
         if (!Utils.discordCheck(auth.getAuthId())) {
             Utils.showDiscordDialog();
-            throw new UnsupportedOperationException("To use this option you need to be on my discord");
+            ExtensionsAPI extensionsAPI = api.getAPI(ExtensionsAPI.class);
+            extensionsAPI.getFeatureInfo(this.getClass())
+                    .addFailure("To use this option you need to be on my discord", "Log in to my discord and reload");
         }
 
         this.api = api;
@@ -191,10 +195,10 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
                         || heroapi.getHealth().shieldPercent() < 0.2;
                 if (findTarget()) {
                     this.currentStatus = State.DO;
-                    if (astralGuiSelection.isVisible()) {
+                    if (astralGuiSelection != null && astralGuiSelection.isVisible()) {
                         astralGuiSelection.setVisible(false);
                     }
-                    if (astralGui.isVisible()) {
+                    if (astralGui != null && astralGui.isVisible()) {
                         astralGui.setVisible(false);
                     }
                     waitingSign = false;
@@ -204,11 +208,14 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
                 } else {
                     if (npcs.size() < 1) {
                         waitingSign = true;
-                        if (movement.isOutOfMap()) {
+                        if (!movement.isMoving() && (astralGui == null || !astralGui.isVisible())) {
                             movement.moveRandom();
                         }
 
-                        if (astralConfig.autoChoosePortal || astralConfig.autoChooseItem) {
+                        if (astralGui != null && (astralConfig.autoChoosePortal || astralConfig.autoChooseItem)) {
+                            if (!astralGui.isVisible()) {
+                                chooseClickDelay = System.currentTimeMillis() + 10000;
+                            }
                             autoChooseLogic();
                         } else {
                             this.currentStatus = State.WAITING_HUMAN;
@@ -238,7 +245,6 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
                 }
             }
         } else {
-            portals.stream().forEach(p -> System.out.println(p.getTypeId()));
             if (astralConfig.autoChoosePortal) {
                 jumpToTheBestPortal();
             }
@@ -279,7 +285,6 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
                 astralShip.setModules(astralShip.getModules() + 1);
                 randomChoose();
             }
-            randomChoose();
             lastPortal = 0;
             astralGui.setVisible(false);
         }
@@ -459,7 +464,7 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
         if (System.currentTimeMillis() < rocketTime) {
             return;
         }
-        SelectableItem rocket = getBestRocket();
+        Rocket rocket = getBestRocket();
 
         if (rocket != null && !heroapi.getRocket().getId().equals(rocket.getId())
                 && useSelectableReadyWhenReady(rocket)) {
@@ -485,7 +490,7 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
 
     }
 
-    private SelectableItem getBestRocket() {
+    private Rocket getBestRocket() {
         return rocketSupplier.get();
     }
 
@@ -512,6 +517,7 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
                 this.bot.setModule(api.requireInstance(MapModule.class)).setTarget(map);
             }
         } catch (MapNotFoundException e) {
+            System.out.println("Map not found" + e.getMessage());
         }
     }
 }

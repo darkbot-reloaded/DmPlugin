@@ -4,7 +4,7 @@ import java.util.Arrays;
 
 import com.deeme.types.VerifierChecker;
 import com.deeme.types.backpage.Utils;
-import com.deeme.types.config.ProfileChangerConfig;
+import com.deeme.types.config.ProfileChanger.ProfileChangerConfig;
 import com.github.manolo8.darkbot.Main;
 
 import eu.darkbot.api.PluginAPI;
@@ -15,6 +15,7 @@ import eu.darkbot.api.extensions.Feature;
 import eu.darkbot.api.game.other.Lockable;
 import eu.darkbot.api.managers.AuthAPI;
 import eu.darkbot.api.managers.BotAPI;
+import eu.darkbot.api.managers.ExtensionsAPI;
 import eu.darkbot.api.managers.HeroAPI;
 import eu.darkbot.api.utils.Inject;
 
@@ -28,8 +29,6 @@ public class ProfileChanger implements Behavior, Configurable<ProfileChangerConf
     private Main main;
 
     public boolean stopBot = false;
-
-    public int lastNPCID = 0;
 
     public ProfileChanger(Main main, PluginAPI api) {
         this(main, api, api.requireAPI(AuthAPI.class),
@@ -45,7 +44,9 @@ public class ProfileChanger implements Behavior, Configurable<ProfileChangerConf
 
         if (!Utils.discordCheck(auth.getAuthId())) {
             Utils.showDiscordDialog();
-            throw new UnsupportedOperationException("To use this option you need to be on my discord");
+            ExtensionsAPI extensionsAPI = api.getAPI(ExtensionsAPI.class);
+            extensionsAPI.getFeatureInfo(this.getClass())
+                    .addFailure("To use this option you need to be on my discord", "Log in to my discord and reload");
         }
 
         this.main = main;
@@ -62,10 +63,13 @@ public class ProfileChanger implements Behavior, Configurable<ProfileChangerConf
     @Override
     public void onTickBehavior() {
         checkNPC();
-        if (config.condition == null || config.condition.get(api).toBoolean()) {
-            if (!config.npcExtraCondition.active || (config.npcExtraCondition.active
-                    && config.npcExtraCondition.npcCounter >= config.npcExtraCondition.npcsToKill)) {
+        if (config.condition == null || config.condition.get(api).allows()) {
+            if ((!config.npcExtraCondition.active || (config.npcExtraCondition.active
+                    && config.npcExtraCondition.npcCounter >= config.npcExtraCondition.npcsToKill)) &&
+                    (!config.npcExtraCondition2.active || (config.npcExtraCondition2.active
+                            && config.npcExtraCondition2.npcCounter >= config.npcExtraCondition2.npcsToKill))) {
                 config.npcExtraCondition.npcCounter = 0;
+                config.npcExtraCondition2.npcCounter = 0;
                 main.setConfig(config.BOT_PROFILE);
             }
         }
@@ -73,13 +77,17 @@ public class ProfileChanger implements Behavior, Configurable<ProfileChangerConf
 
     private void checkNPC() {
         Lockable target = hero.getLocalTarget();
-        if (target != null && target.isValid()) {
-            if (target.getId() != lastNPCID) {
-                lastNPCID = target.getId();
-                String name = target.getEntityInfo().getUsername();
-                if (name != null && name.toLowerCase().contains(config.npcExtraCondition.npcName.toLowerCase())) {
-                    config.npcExtraCondition.npcCounter++;
-                }
+        if (target != null && target.isValid() && target.isOwned()) {
+            String name = target.getEntityInfo().getUsername();
+            if (name != null && name.toLowerCase().contains(config.npcExtraCondition.npcName.toLowerCase())
+                    && target.getId() != config.npcExtraCondition.lastNPCId) {
+                config.npcExtraCondition.lastNPCId = target.getId();
+                config.npcExtraCondition.npcCounter++;
+            }
+            if (name != null && name.toLowerCase().contains(config.npcExtraCondition2.npcName.toLowerCase())
+                    && target.getId() != config.npcExtraCondition2.lastNPCId) {
+                config.npcExtraCondition2.lastNPCId = target.getId();
+                config.npcExtraCondition2.npcCounter++;
             }
         }
     }

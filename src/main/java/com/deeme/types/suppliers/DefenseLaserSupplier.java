@@ -1,4 +1,4 @@
-package com.deeme.types;
+package com.deeme.types.suppliers;
 
 import com.github.manolo8.darkbot.config.Config.Loot.Sab;
 
@@ -17,7 +17,6 @@ public class DefenseLaserSupplier implements LaserSelector, PrioritizedSupplier<
     private boolean useRsb, useRcb, useSab, rsbActive = false;
 
     private Sab sab;
-    private long usedRsb;
 
     public DefenseLaserSupplier(PluginAPI api, HeroAPI heroapi, HeroItemsAPI items, Sab sab, boolean rsbActive) {
         this.api = api;
@@ -28,38 +27,37 @@ public class DefenseLaserSupplier implements LaserSelector, PrioritizedSupplier<
     }
 
     public Laser get() {
-        getPriority();
-        return useRcb ? Laser.RCB_140
-                : useRsb ? Laser.RSB_75
-                        : useSab ? Laser.SAB_50
+        return shouldRcb() ? Laser.RCB_140
+                : shouldRsb() ? Laser.RSB_75
+                        : shouldSab() ? Laser.SAB_50
                                 : Laser.UCB_100;
     }
 
     private boolean shouldSab() {
         return this.sab.ENABLED && heroapi.getHealth().shieldPercent() <= sab.PERCENT
                 && heroapi.getLocalTarget().getHealth().getShield() > sab.NPC_AMOUNT
-                && (sab.CONDITION == null || sab.CONDITION.get(api).toBoolean());
+                && (sab.CONDITION == null || sab.CONDITION.get(api).allows());
     }
 
     private boolean shouldRsb() {
         if (this.rsbActive) {
-            boolean isReady = items.getItem(Laser.RSB_75, ItemFlag.USABLE, ItemFlag.READY).isPresent();
-            if (isReady && usedRsb < System.currentTimeMillis() - 1000) {
-                usedRsb = System.currentTimeMillis();
+            Character key = items.getKeyBind(Laser.RSB_75);
+            if (key != null) {
+                return items.getItem(Laser.RSB_75, ItemFlag.USABLE, ItemFlag.READY, ItemFlag.POSITIVE_QUANTITY)
+                        .isPresent();
             }
-
-            return isReady && usedRsb > System.currentTimeMillis() - 500;
         }
         return false;
     }
 
     private boolean shouldRcb() {
         if (this.rsbActive) {
-            boolean isReady = items.getItem(Laser.RCB_140, ItemFlag.USABLE, ItemFlag.READY).isPresent();
 
-            if (isReady && usedRsb < System.currentTimeMillis() - 1000)
-                usedRsb = System.currentTimeMillis();
-            return isReady && usedRsb > System.currentTimeMillis() - 500;
+            Character key = items.getKeyBind(Laser.RCB_140);
+            if (key != null) {
+                return items.getItem(Laser.RCB_140, ItemFlag.USABLE, ItemFlag.READY, ItemFlag.POSITIVE_QUANTITY)
+                        .isPresent();
+            }
         }
         return false;
     }

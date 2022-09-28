@@ -53,7 +53,6 @@ public class Utils {
                     "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
             conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
             conn.setRequestMethod("GET");
-            ;
 
             BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             String inputLine;
@@ -96,7 +95,6 @@ public class Utils {
         if (data != null && data.contains("-")) {
             String[] strArray = data.split("-");
             if (strArray[1] != null) {
-                System.out.println(strArray[1]);
                 return strArray[1];
             }
 
