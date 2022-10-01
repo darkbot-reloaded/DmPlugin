@@ -19,7 +19,6 @@ import eu.darkbot.api.game.entities.Npc;
 import eu.darkbot.api.game.entities.Ship;
 import eu.darkbot.api.game.group.GroupMember;
 import eu.darkbot.api.game.items.ItemFlag;
-import eu.darkbot.api.game.items.SelectableItem;
 import eu.darkbot.api.game.items.SelectableItem.Ability;
 import eu.darkbot.api.game.other.Lockable;
 import eu.darkbot.api.game.other.Movable;
@@ -43,8 +42,9 @@ public class AutoBestAbility implements Behavior, Configurable<BestAbilityConfig
     protected final HeroItemsAPI items;
     protected final SafetyFinder safety;
     private BestAbilityConfig config;
-
     private Collection<? extends Ship> allShips;
+
+    private long nextCheck = 0;
 
     public AutoBestAbility(PluginAPI api) {
         this(api, api.requireAPI(AuthAPI.class),
@@ -77,147 +77,112 @@ public class AutoBestAbility implements Behavior, Configurable<BestAbilityConfig
 
     @Override
     public void onTickBehavior() {
-        Entity target = heroapi.getLocalTarget();
-        if (target != null && target.isValid()) {
-            if (config.npcEnabled || !(target instanceof Npc)) {
+        if (nextCheck < System.currentTimeMillis()) {
+            nextCheck = System.currentTimeMillis() + 2000;
+            Entity target = heroapi.getLocalTarget();
+            if (target != null && target.isValid()) {
+                if (config.npcEnabled || !(target instanceof Npc)) {
+                    useSelectableReadyWhenReady(getBestAbility());
+                }
+            } else if (safety.state() == Escaping.ENEMY) {
                 useSelectableReadyWhenReady(getBestAbility());
             }
-        } else if (safety.state() == Escaping.ENEMY) {
-            useSelectableReadyWhenReady(getBestAbility());
         }
     }
 
     private Ability getBestAbility() {
         if (shoulFocusHealth()) {
-            if (items.getItem(Ability.AEGIS_REPAIR_POD, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            if (isAvailable(Ability.AEGIS_REPAIR_POD)) {
                 return Ability.AEGIS_REPAIR_POD;
-            }
-            if (items.getItem(Ability.AEGIS_HP_REPAIR, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.AEGIS_HP_REPAIR)) {
                 return Ability.AEGIS_HP_REPAIR;
-            }
-            if (items.getItem(Ability.LIBERATOR_PLUS_SELF_REPAIR, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.LIBERATOR_PLUS_SELF_REPAIR)) {
                 return Ability.LIBERATOR_PLUS_SELF_REPAIR;
-            }
-            if (items.getItem(Ability.SOLACE, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.SOLACE)) {
                 return Ability.SOLACE;
-            }
-            if (bot.getVersion().compareTo(new Version("1.13.17 beta 109 alpha 15")) > 1) {
-                if (items.getItem(Ability.SOLACE_PLUS_NANO_CLUSTER_REPAIRER_PLUS, ItemFlag.USABLE, ItemFlag.READY)
-                        .isPresent()) {
-                    return Ability.SOLACE_PLUS_NANO_CLUSTER_REPAIRER_PLUS;
-                }
+            } else if (bot.getVersion().compareTo(new Version("1.13.17 beta 109 alpha 14")) > 1
+                    && isAvailable(Ability.SOLACE_PLUS_NANO_CLUSTER_REPAIRER_PLUS)) {
+                return Ability.SOLACE_PLUS_NANO_CLUSTER_REPAIRER_PLUS;
             }
         }
-
         if (shoulFocusShield()
-                && items.getItem(Ability.AEGIS_SHIELD_REPAIR, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+                && isAvailable(Ability.AEGIS_SHIELD_REPAIR)) {
             return Ability.AEGIS_SHIELD_REPAIR;
         }
-
         if (shoulFocusSpeed()) {
-            if (items.getItem(Ability.CITADEL_TRAVEL, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            if (isAvailable(Ability.CITADEL_TRAVEL)) {
                 return Ability.CITADEL_TRAVEL;
-            }
-            if (items.getItem(Ability.LIGHTNING, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.LIGHTNING)) {
                 return Ability.LIGHTNING;
-            }
-            if (items.getItem(Ability.TARTARUS_SPEED_BOOST, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.TARTARUS_SPEED_BOOST)) {
                 return Ability.TARTARUS_SPEED_BOOST;
-            }
-            if (items.getItem(Ability.KERES_SPR, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.KERES_SPR)) {
                 return Ability.KERES_SPR;
-            }
-            if (items.getItem(Ability.RETIARUS_SPC, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.RETIARUS_SPC)) {
                 return Ability.RETIARUS_SPC;
-            }
-            if (items.getItem(Ability.MIMESIS_PHASE_OUT, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.MIMESIS_PHASE_OUT)) {
                 return Ability.MIMESIS_PHASE_OUT;
-            }
-            if (items.getItem(Ability.ZEPHYR_MMT, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.ZEPHYR_MMT)) {
                 return Ability.ZEPHYR_MMT;
             }
         }
-
         if (shoulFocusEvade()) {
-            if (items.getItem(Ability.SPEARHEAD_ULTIMATE_CLOAK, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            if (isAvailable(Ability.SPEARHEAD_ULTIMATE_CLOAK)) {
                 return Ability.SPEARHEAD_ULTIMATE_CLOAK;
-            }
-            if (items.getItem(Ability.BERSERKER_RVG, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.BERSERKER_RVG)) {
                 return Ability.BERSERKER_RVG;
-            }
-            if (items.getItem(Ability.MIMESIS_SCRAMBLE, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.MIMESIS_SCRAMBLE)) {
                 return Ability.MIMESIS_SCRAMBLE;
-            }
-            if (items.getItem(Ability.DISRUPTOR_DDOL, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.DISRUPTOR_DDOL)) {
                 return Ability.DISRUPTOR_DDOL;
             }
         }
-
         if (shouldFocusHelpTank()) {
-            if (items.getItem(Ability.CITADEL_DRAW_FIRE, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            if (isAvailable(Ability.CITADEL_DRAW_FIRE)) {
                 return Ability.CITADEL_DRAW_FIRE;
-            }
-            if (items.getItem(Ability.CITADEL_PROTECTION, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.CITADEL_PROTECTION)) {
                 return Ability.CITADEL_PROTECTION;
             }
         }
-
         if (shoulFocusEvade()) {
-            if (items.getItem(Ability.CITADEL_PLUS_PRISMATIC_ENDURANCE, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            if (isAvailable(Ability.CITADEL_PLUS_PRISMATIC_ENDURANCE)) {
                 return Ability.CITADEL_PLUS_PRISMATIC_ENDURANCE;
-            }
-            if (items.getItem(Ability.CITADEL_FORTIFY, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.CITADEL_FORTIFY)) {
                 return Ability.CITADEL_FORTIFY;
-            }
-            if (items.getItem(Ability.DISRUPTOR_REDIRECT, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.DISRUPTOR_REDIRECT)) {
                 return Ability.DISRUPTOR_REDIRECT;
-            }
-            if (items.getItem(Ability.SPECTRUM, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.SPECTRUM)) {
                 return Ability.SPECTRUM;
-            }
-            if (items.getItem(Ability.SENTINEL, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.SENTINEL)) {
                 return Ability.SENTINEL;
-            }
-            if (items.getItem(Ability.BERSERKER_BSK, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.BERSERKER_BSK)) {
                 return Ability.BERSERKER_BSK;
-            }
-            if (items.getItem(Ability.ORCUS_ASSIMILATE, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.ORCUS_ASSIMILATE)) {
                 return Ability.ORCUS_ASSIMILATE;
             }
         }
-
         if (shoulFocusDamage()) {
-            if (items.getItem(Ability.SPEARHEAD_TARGET_MARKER, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            if (isAvailable(Ability.SPEARHEAD_TARGET_MARKER)) {
                 return Ability.SPEARHEAD_TARGET_MARKER;
-            }
-            if (items.getItem(Ability.DIMINISHER, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.DIMINISHER)) {
                 return Ability.DIMINISHER;
-            }
-            if (items.getItem(Ability.GOLIATH_X_FROZEN_CLAW, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.GOLIATH_X_FROZEN_CLAW)) {
                 return Ability.GOLIATH_X_FROZEN_CLAW;
-            }
-            if (items.getItem(Ability.VENOM, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.VENOM)) {
                 return Ability.VENOM;
-            }
-            if (items.getItem(Ability.SOLARIS_INC, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.SOLARIS_INC)) {
                 return Ability.SOLARIS_INC;
-            }
-            if (items.getItem(Ability.TARTARUS_RAPID_FIRE, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.TARTARUS_RAPID_FIRE)) {
                 return Ability.TARTARUS_RAPID_FIRE;
-            }
-            if (items.getItem(Ability.DISRUPTOR_SHIELD_DISARRAY, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.DISRUPTOR_SHIELD_DISARRAY)) {
                 return Ability.DISRUPTOR_SHIELD_DISARRAY;
-            }
-            if (items.getItem(Ability.HECATE_PARTICLE_BEAM, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.HECATE_PARTICLE_BEAM)) {
                 return Ability.HECATE_PARTICLE_BEAM;
-            }
-            if (items.getItem(Ability.KERES_SPR, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.KERES_SPR)) {
                 return Ability.KERES_SPR;
-            }
-            if (items.getItem(Ability.ZEPHYR_TBR, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.ZEPHYR_TBR)) {
                 return Ability.ZEPHYR_TBR;
-            }
-            if (items.getItem(Ability.HOLO_ENEMY_REVERSAL, ItemFlag.USABLE, ItemFlag.READY).isPresent()) {
+            } else if (isAvailable(Ability.HOLO_ENEMY_REVERSAL)) {
                 return Ability.HOLO_ENEMY_REVERSAL;
             }
         }
@@ -253,15 +218,15 @@ public class AutoBestAbility implements Behavior, Configurable<BestAbilityConfig
     private boolean shoulFocusHealth() {
         if (bot.getModule() != null && bot.getModule().getClass() == AmbulanceModule.class) {
             return false;
-        }
-        if (heroapi.getHealth().hpPercent() < 0.5 && heroapi.getEffects() != null
-                && !heroapi.getEffects().toString().contains("76")) {
+        } else if (heroapi.getEffects() != null
+                && heroapi.getEffects().toString().contains("76")) {
+            return false;
+        } else if (heroapi.getHealth().hpPercent() <= 0.5) {
             return true;
-        }
-        if (group.hasGroup()) {
+        } else if (group.hasGroup()) {
             for (GroupMember member : group.getMembers()) {
                 if (!member.isDead() && member.isAttacked() && member.isLocked()
-                        && member.getMemberInfo().hpPercent() < 0.5) {
+                        && member.getMemberInfo().hpPercent() <= 0.5) {
                     return true;
                 }
             }
@@ -273,9 +238,7 @@ public class AutoBestAbility implements Behavior, Configurable<BestAbilityConfig
     private boolean shouldFocusHelpTank() {
         if (heroapi.getHealth().shieldPercent() < 0.5) {
             return false;
-        }
-
-        if (group.hasGroup()) {
+        } else if (group.hasGroup()) {
             for (GroupMember member : group.getMembers()) {
                 if (!member.isDead() && member.isAttacked() && member.getLocation().distanceTo(heroapi) < 1000) {
                     return true;
@@ -289,9 +252,7 @@ public class AutoBestAbility implements Behavior, Configurable<BestAbilityConfig
     private boolean shoulFocusShield() {
         if (heroapi.getHealth().shieldPercent() < 0.5) {
             return true;
-        }
-
-        if (group.hasGroup()) {
+        } else if (group.hasGroup()) {
             for (GroupMember member : group.getMembers()) {
                 if (!member.isDead() && member.isAttacked() && member.isLocked()
                         && member.getMemberInfo().shieldPercent() < 0.5) {
@@ -311,15 +272,13 @@ public class AutoBestAbility implements Behavior, Configurable<BestAbilityConfig
         return target != null;
     }
 
-    private boolean useSelectableReadyWhenReady(SelectableItem selectableItem) {
-        if (selectableItem == null) {
-            return false;
-        }
+    private boolean isAvailable(Ability ability) {
+        return ability != null
+                && items.getItem(ability, ItemFlag.USABLE, ItemFlag.READY, ItemFlag.AVAILABLE).isPresent();
+    }
 
-        if (items.useItem(selectableItem, 500, ItemFlag.USABLE, ItemFlag.READY).isSuccessful()) {
-            return true;
-        }
-
-        return false;
+    private boolean useSelectableReadyWhenReady(Ability selectableItem) {
+        return (selectableItem != null
+                && items.useItem(selectableItem, 500, ItemFlag.USABLE, ItemFlag.READY).isSuccessful());
     }
 }
