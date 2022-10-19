@@ -6,13 +6,14 @@ import com.deeme.types.suppliers.DefenseLaserSupplier;
 import com.github.manolo8.darkbot.Main;
 import com.github.manolo8.darkbot.config.Config.Loot.Sab;
 import com.github.manolo8.darkbot.core.api.DarkBoatAdapter;
-import com.github.manolo8.darkbot.extensions.util.Version;
+import com.github.manolo8.darkbot.core.api.DarkBoatHookAdapter;
 
 import eu.darkbot.api.PluginAPI;
 import eu.darkbot.api.config.ConfigSetting;
 import eu.darkbot.api.config.types.PercentRange;
 import eu.darkbot.api.config.types.ShipMode;
 import eu.darkbot.api.config.types.ShipMode.ShipModeImpl;
+import eu.darkbot.api.game.entities.Pet;
 import eu.darkbot.api.game.entities.Player;
 import eu.darkbot.api.game.entities.Portal;
 import eu.darkbot.api.game.entities.Ship;
@@ -132,19 +133,20 @@ public class ShipAttacker {
         if (target == null) {
             return;
         }
-        if (bot.getVersion().compareTo(new Version("1.13.17 beta 108")) > 0) {
-            if (heroapi.isAttacking(target)) {
-                tryAttackOrFix();
-            } else {
-                tryLockTarget();
-            }
-        } else {
+
+        if (API instanceof DarkBoatAdapter || API instanceof DarkBoatHookAdapter) {
             if (heroapi.getLocalTarget() != target) {
                 tryLockTarget();
                 return;
             }
 
             tryAttackOrFix();
+        } else {
+            if (heroapi.isAttacking(target)) {
+                tryAttackOrFix();
+            } else {
+                tryLockTarget();
+            }
         }
     }
 
@@ -227,16 +229,16 @@ public class ShipAttacker {
 
     public boolean useKeyWithConditions(ExtraKeyConditions extra, SelectableItem selectableItem) {
         if (extra.enable) {
-            if (selectableItem == null && extra.Key != null) {
-                selectableItem = items.getItem(extra.Key);
+            if (selectableItem == null && extra.key != null) {
+                selectableItem = items.getItem(extra.key);
             }
 
-            if (selectableItem != null && heroapi.getHealth().hpPercent() < extra.HEALTH_RANGE.max
-                    && heroapi.getHealth().hpPercent() > extra.HEALTH_RANGE.min
+            if (selectableItem != null && heroapi.getHealth().hpPercent() < extra.healthRange.max
+                    && heroapi.getHealth().hpPercent() > extra.healthRange.min
                     && heroapi.getLocalTarget() != null
-                    && heroapi.getLocalTarget().getHealth().hpPercent() < extra.HEALTH_ENEMY_RANGE.max
-                    && heroapi.getLocalTarget().getHealth().hpPercent() > extra.HEALTH_ENEMY_RANGE.min
-                    && (extra.CONDITION == null || extra.CONDITION.get(api).allows())) {
+                    && heroapi.getLocalTarget().getHealth().hpPercent() < extra.healthEnemyRange.max
+                    && heroapi.getLocalTarget().getHealth().hpPercent() > extra.healthEnemyRange.min
+                    && (extra.condition == null || extra.condition.get(api).allows())) {
                 return useSelectableReadyWhenReady(selectableItem);
             }
         }
@@ -330,7 +332,7 @@ public class ShipAttacker {
             return allShips.stream()
                     .filter(s -> (s.getEntityInfo().isEnemy() && !s.getEffects().toString().contains("290")
                             && s.getLocationInfo().distanceTo(heroapi) <= maxDistance)
-                            && !SharedFunctions.isPet(s.getEntityInfo().getUsername())
+                            && !(s instanceof Pet)
                             && !inGroup(s.getId()))
                     .sorted(Comparator.comparingDouble(s -> s.getLocationInfo().distanceTo(heroapi))).findAny()
                     .orElse(null);

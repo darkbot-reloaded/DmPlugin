@@ -1,17 +1,22 @@
 package com.deeme.types;
 
 import com.github.manolo8.darkbot.Main;
+import com.github.manolo8.darkbot.core.entities.Pet;
 
 import eu.darkbot.api.config.ConfigSetting;
 import eu.darkbot.api.config.types.NpcInfo;
 import eu.darkbot.api.game.entities.Npc;
 import eu.darkbot.api.game.entities.Ship;
+import eu.darkbot.api.game.items.ItemCategory;
+import eu.darkbot.api.game.items.SelectableItem;
 import eu.darkbot.api.managers.ConfigAPI;
 import eu.darkbot.api.managers.EntitiesAPI;
 import eu.darkbot.api.managers.HeroAPI;
 
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 public class SharedFunctions {
@@ -33,7 +38,7 @@ public class SharedFunctions {
 
         return allShips.stream()
                 .filter(s -> (s instanceof Npc || s.getEntityInfo().isEnemy()))
-                .filter(s -> !isPet(s.getEntityInfo().getUsername()))
+                .filter(s -> !(s instanceof Pet))
                 .filter(s -> s.isAttacking(assaulted))
                 .sorted(Comparator.comparingDouble(s -> s.getLocationInfo().distanceTo(hero)))
                 .findFirst().orElse(null);
@@ -42,10 +47,6 @@ public class SharedFunctions {
     public static boolean hasAttacker(Ship assaulted, Main main) {
         Ship ship = getAttacker(assaulted, main);
         return ship != null;
-    }
-
-    public static boolean isPet(String name) {
-        return name.matches(".*?(\\s)(\\[(\\d+)\\])");
     }
 
     public static boolean isNpc(ConfigAPI config, String name) {
@@ -59,6 +60,22 @@ public class SharedFunctions {
         }
 
         return false;
+    }
+
+    public static SelectableItem getItemById(String id) {
+        Iterator<ItemCategory> it = SelectableItem.ALL_ITEMS.keySet().iterator();
+        while (it.hasNext()) {
+            ItemCategory key = it.next();
+            List<SelectableItem> selectableItemList = SelectableItem.ALL_ITEMS.get(key);
+            Iterator<SelectableItem> itItem = selectableItemList.iterator();
+            while (itItem.hasNext()) {
+                SelectableItem next = itItem.next();
+                if (next.getId().equals(id)) {
+                    return next;
+                }
+            }
+        }
+        return null;
     }
 
 }
