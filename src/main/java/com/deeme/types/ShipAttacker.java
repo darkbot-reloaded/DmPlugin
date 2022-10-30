@@ -1,6 +1,6 @@
 package com.deeme.types;
 
-import com.deeme.types.config.Defense;
+import com.deeme.behaviours.defense.DefenseConfig;
 import com.deeme.types.config.ExtraKeyConditions;
 import com.deeme.types.suppliers.DefenseLaserSupplier;
 import com.github.manolo8.darkbot.Main;
@@ -59,7 +59,7 @@ public class ShipAttacker {
     protected long clickDelay;
     protected long keyDelay;
     protected boolean sab;
-    private Defense defense = null;
+    private DefenseConfig defense = null;
     private Random rnd;
 
     protected boolean firstAttack;
@@ -89,7 +89,7 @@ public class ShipAttacker {
         this.ammoKey = configAPI.requireConfig("loot.ammo_key");
     }
 
-    public ShipAttacker(PluginAPI api, Defense defense) {
+    public ShipAttacker(PluginAPI api, DefenseConfig defense) {
         this(api, defense.SAB, defense.useRSB);
         this.defense = defense;
     }
@@ -327,8 +327,7 @@ public class ShipAttacker {
     }
 
     public Ship getEnemy(int maxDistance) {
-        if (heroapi.getMap().isPvp() || allPortals.stream().filter(p -> heroapi.distanceTo(p) < maxDistance).findFirst()
-                .orElse(null) == null) {
+        if (heroapi.getMap().isPvp() || !allPortals.stream().anyMatch(p -> heroapi.distanceTo(p) < 1500)) {
             return allShips.stream()
                     .filter(s -> (s.getEntityInfo().isEnemy() && !s.getEffects().toString().contains("290")
                             && s.getLocationInfo().distanceTo(heroapi) <= maxDistance)

@@ -3,6 +3,7 @@ package com.deeme.modules.astral;
 import com.deeme.types.VerifierChecker;
 import com.deeme.types.backpage.Utils;
 import com.github.manolo8.darkbot.config.NpcExtraFlag;
+import com.github.manolo8.darkbot.core.api.DarkBoatAdapter;
 import com.github.manolo8.darkbot.core.itf.NpcExtraProvider;
 
 import eu.darkbot.api.PluginAPI;
@@ -48,6 +49,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Random;
+
+import static com.github.manolo8.darkbot.Main.API;
 
 @Feature(name = "Astral Gate", description = "For the astral gate and another GGs")
 public class AstralGate implements Module, InstructionProvider, Configurable<AstralConfig>, NpcExtraProvider {
@@ -168,7 +171,7 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
 
     @Override
     public boolean canRefresh() {
-        return waitingSign && npcs.isEmpty() && !heroapi.getMap().isGG();
+        return isHomeMap();
     }
 
     @Override
@@ -217,6 +220,9 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
                     changeAmmo();
                 } else {
                     if (npcs.isEmpty()) {
+                        if (waitingSign) {
+                            goToTheMiddle();
+                        }
                         waitingSign = true;
                         if (astralGui != null && (astralConfig.autoChoosePortal || astralConfig.autoChooseItem)) {
                             if (!astralGui.isVisible()) {
@@ -231,7 +237,6 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
                         } else {
                             this.currentStatus = State.WAITING_WAVE;
                         }
-                        goToTheMiddle();
                     }
                 }
             } else {
@@ -323,11 +328,12 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
     }
 
     private boolean changeAmmo() {
-        if (astralConfig.useBestAmmo || attacker.hasExtraFlag(ExtraNpcFlags.BEST_AMMO) || isSlowerThanTarget()) {
+        if (astralConfig.useBestAmmoLogic == BestAmmoConfig.ALWAYS || attacker.hasExtraFlag(ExtraNpcFlags.BEST_AMMO)
+                || (astralConfig.useBestAmmoLogic == BestAmmoConfig.SPECIAL_LOGIC && isSlowerThanTarget())) {
             changeLaser(true);
             changeRocket(true);
             return true;
-        } else {
+        } else if (astralConfig.useBestAmmoLogic == BestAmmoConfig.SPECIAL_LOGIC) {
             changeRocket(false);
         }
 
@@ -545,7 +551,7 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
         try {
             GameMap map = starSystem.getByName("GG Astral");
             if (map != null && !portals.isEmpty() && map != starSystem.getCurrentMap()) {
-                if (StarSystemAPI.HOME_MAPS.contains(starSystem.getCurrentMap().getShortName())) {
+                if (isHomeMap()) {
                     if (portals.stream().anyMatch(p -> p.getTargetMap().isPresent() && p.getTargetMap().get() == map)) {
                         this.bot.setModule(api.requireInstance(MapModule.class)).setTarget(map);
                     } else if (astralConfig.astralCPUKey != null) {
@@ -563,6 +569,10 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
         }
     }
 
+    private boolean isHomeMap() {
+        return StarSystemAPI.HOME_MAPS.contains(starSystem.getCurrentMap().getShortName());
+    }
+
     private boolean isSlowerThanTarget() {
         Entity target = heroapi.getLocalTarget();
         if (target != null && target.isValid()) {
@@ -575,8 +585,12 @@ public class AstralGate implements Module, InstructionProvider, Configurable<Ast
 
     private void goToTheMiddle() {
         if (!movement.isMoving() && astralGui != null && !astralGui.isVisible()) {
-            movement.moveTo(starSystem.getCurrentMapBounds().getWidth() / 2,
-                    starSystem.getCurrentMapBounds().getHeight() / 2);
+            if (API instanceof DarkBoatAdapter) {
+                movement.moveRandom();
+            } else {
+                movement.moveTo(starSystem.getCurrentMapBounds().getWidth() / 2,
+                        starSystem.getCurrentMapBounds().getHeight() / 2);
+            }
         }
     }
 
