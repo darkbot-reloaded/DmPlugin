@@ -1,10 +1,10 @@
 package com.deeme.modules;
 
+import com.deeme.modules.pvp.PVPConfig;
 import com.deeme.types.SharedFunctions;
 import com.deeme.types.ShipAttacker;
 import com.deeme.types.VerifierChecker;
 import com.deeme.types.backpage.Utils;
-import com.deeme.types.config.PVPConfig;
 
 import eu.darkbot.api.PluginAPI;
 import eu.darkbot.api.config.ConfigSetting;
@@ -33,8 +33,10 @@ import eu.darkbot.shared.modules.CollectorModule;
 import eu.darkbot.shared.modules.MapModule;
 import eu.darkbot.shared.utils.SafetyFinder;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 
 @Feature(name = "PVP Module", description = "It is limited so as not to spoil the game")
 public class PVPModule implements Module, Configurable<PVPConfig> {
@@ -73,6 +75,13 @@ public class PVPModule implements Module, Configurable<PVPConfig> {
     private boolean isConfigAttackFull = false;
     private boolean isCongigRunFull = false;
 
+    private long nextAttackCheck = 0;
+    private final int maxSecondsTimeOut = 10;
+    private int timeOut = 0;
+
+    private ArrayList<Integer> playersKilled = new ArrayList<>();
+    private int lastPlayerId = 0;
+
     public PVPModule(PluginAPI api) {
         this(api, api.requireAPI(HeroAPI.class),
                 api.requireAPI(AuthAPI.class),
@@ -88,12 +97,7 @@ public class PVPModule implements Module, Configurable<PVPConfig> {
             throw new SecurityException();
         VerifierChecker.checkAuthenticity(auth);
 
-        if (!Utils.discordCheck(auth.getAuthId())) {
-            Utils.showDiscordDialog();
-            ExtensionsAPI extensionsAPI = api.getAPI(ExtensionsAPI.class);
-            extensionsAPI.getFeatureInfo(this.getClass())
-                    .addFailure("To use this option you need to be on my discord", "Log in to my discord and reload");
-        }
+        Utils.discordCheck(api.getAPI(ExtensionsAPI.class).getFeatureInfo(this.getClass()), auth.getAuthId());
 
         this.api = api;
         this.heroapi = hero;
@@ -120,7 +124,8 @@ public class PVPModule implements Module, Configurable<PVPConfig> {
         if (safety.state() != SafetyFinder.Escaping.NONE) {
             return safety.status();
         } else if (target != null) {
-            return shipAttacker.getStatus();
+            return shipAttacker.getStatus() + " | Time out:" + timeOut
+                    + "/" + maxSecondsTimeOut;
         }
         return collectorModule.getStatus();
     }
@@ -150,9 +155,19 @@ public class PVPModule implements Module, Configurable<PVPConfig> {
     public void onTickModule() {
         pet.setEnabled(true);
         if (!pvpConfig.move || (safety.tick() && checkMap())) {
-            if (getTarget()) {
+            if (hasTarget()) {
+                if (target.getId() != lastPlayerId) {
+                    playersKilled.add(lastPlayerId);
+                }
+                if (target.getHealth().getHp() <= 30000) {
+                    lastPlayerId = target.getId();
+                }
                 attackLogic();
             } else {
+                if (0 != lastPlayerId) {
+                    playersKilled.add(lastPlayerId);
+                    lastPlayerId = 0;
+                }
                 attackConfigLost = false;
                 target = null;
                 shipAttacker.resetDefenseData();
@@ -182,6 +197,21 @@ public class PVPModule implements Module, Configurable<PVPConfig> {
 
         if (pvpConfig.move) {
             shipAttacker.vsMove();
+        }
+        timeOutCheck();
+    }
+
+    private void timeOutCheck() {
+        if (nextAttackCheck < System.currentTimeMillis()) {
+            nextAttackCheck = System.currentTimeMillis() + 1000;
+            if (heroapi.isAttacking(shipAttacker.getTarget())) {
+                timeOut = 0;
+            } else {
+                timeOut++;
+                if (timeOut >= maxSecondsTimeOut) {
+                    target = null;
+                }
+            }
         }
     }
 
@@ -236,39 +266,46 @@ public class PVPModule implements Module, Configurable<PVPConfig> {
         return true;
     }
 
-    private boolean getTarget() {
-        if ((target != null && target.isValid() && !shipAttacker.inGroup(target.getId())
-                && target.getLocationInfo().distanceTo(heroapi) < pvpConfig.rangeForAttackedEnemy)
-                || isUnderAttack()) {
+    private boolean hasTarget() {
+        if (target != null && target.isValid() && !shipAttacker.inGroup(target.getId())
+                && target.getLocationInfo().distanceTo(heroapi) < pvpConfig.rangeForAttackedEnemy) {
             return true;
         }
 
-        target = shipAttacker.getEnemy(pvpConfig.rangeForEnemies);
-        shipAttacker.setTarget(target);
-        return target != null;
+        if (!isUnderAttack()) {
+            target = shipAttacker.getEnemy(pvpConfig.rangeForEnemies, getIgnoredPlayers());
+            shipAttacker.setTarget(target);
+        }
+
+        return target != null && target.isValid();
     }
 
     private void setConfigToUse() {
         if (attackConfigLost || heroapi.getHealth().shieldPercent() < 0.1 && heroapi.getHealth().hpPercent() < 0.3) {
             attackConfigLost = true;
             heroapi.setMode(configRun.getValue());
+            lastDistanceTarget = 1000;
         } else if (pvpConfig.useRunConfig && target != null) {
             double distance = heroapi.getLocationInfo().distanceTo(target);
-            if (distance > 400 && distance > lastDistanceTarget && target.getSpeed() > heroapi.getSpeed()) {
+            if (distance > 500 && distance > lastDistanceTarget && target.getSpeed() >= heroapi.getSpeed()) {
                 heroapi.setMode(configRun.getValue());
                 lastDistanceTarget = distance;
+                return;
             } else {
                 heroapi.setMode(configOffensive.getValue());
+                lastDistanceTarget = 1000;
             }
         } else {
             heroapi.setMode(configOffensive.getValue());
+            lastDistanceTarget = 1000;
         }
     }
 
     private boolean isUnderAttack() {
         Entity targetAttacker = SharedFunctions.getAttacker(heroapi, players, heroapi);
-        if (targetAttacker != null) {
-            shipAttacker.setTarget((Ship) targetAttacker);
+        if (targetAttacker != null && targetAttacker.isValid()) {
+            target = (Ship) targetAttacker;
+            shipAttacker.setTarget(target);
             return true;
         }
         shipAttacker.resetDefenseData();
@@ -276,5 +313,20 @@ public class PVPModule implements Module, Configurable<PVPConfig> {
         target = null;
 
         return false;
+    }
+
+    private ArrayList<Integer> getIgnoredPlayers() {
+        ArrayList<Integer> playersToIgnore = new ArrayList<>();
+
+        if (pvpConfig.antiPush.enable) {
+            playersKilled.forEach(id -> {
+                if (!playersToIgnore.contains(id)
+                        && Collections.frequency(playersKilled, id) >= pvpConfig.antiPush.maxKills) {
+                    playersToIgnore.add(id);
+                }
+            });
+        }
+
+        return playersToIgnore;
     }
 }

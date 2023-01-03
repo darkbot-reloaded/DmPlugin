@@ -48,6 +48,9 @@ import eu.darkbot.shared.utils.SafetyFinder;
 import java.util.Arrays;
 import java.util.Collection;
 
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+
 @Feature(name = "Sentinel", description = "Follow the main ship or the group leader and do the same")
 public class SentinelModule implements Module, Configurable<SentinelConfig>, InstructionProvider {
     protected PluginAPI api;
@@ -89,6 +92,11 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
 
     protected Location lastSentinelLocation = null;
 
+    private JLabel label = new JLabel("<html><b>Sentinel Module</b> <br>" +
+            "It's important that the main ship is in a group <br>" +
+            "Following priority: Master ID > Tag > Group Leader <br> " +
+            "If a \"Sentinel Tag\" is not defined, it will follow the group leader </html>");
+
     private enum State {
         INIT("Init"),
         WAIT("Waiting for group invitation"),
@@ -120,12 +128,7 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
             throw new SecurityException();
         VerifierChecker.checkAuthenticity(auth);
 
-        if (!Utils.discordCheck(auth.getAuthId())) {
-            Utils.showDiscordDialog();
-            ExtensionsAPI extensionsAPI = api.getAPI(ExtensionsAPI.class);
-            extensionsAPI.getFeatureInfo(this.getClass())
-                    .addFailure("To use this option you need to be on my discord", "Log in to my discord and reload");
-        }
+        Utils.discordCheck(api.getAPI(ExtensionsAPI.class).getFeatureInfo(this.getClass()), auth.getAuthId());
 
         this.main = main;
         this.currentStatus = State.INIT;
@@ -188,11 +191,8 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
     }
 
     @Override
-    public String instructions() {
-        return "Sentinel Module: \n" +
-                "It's important that the main ship is in a group \n" +
-                "Following priority: Master ID > Tag > Group Leader \n " +
-                "If a \"Sentinel Tag\" is not defined, it will follow the group leader \n";
+    public JComponent instructionsComponent() {
+        return label;
     }
 
     @Override
@@ -236,9 +236,7 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
                 } else {
                     sentinel = null;
                 }
-            } else if (sConfig.followByPortals && lastSentinelLocation != null) {
-                followByPortals();
-            } else {
+            } else if (!followByPortals()) {
                 groupLeaderID = 0;
                 if (group.hasGroup()) {
                     goToGroup();
@@ -273,15 +271,26 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
         shipAttacker.useKeyWithConditions(sConfig.specialItems.pem, Special.EMP_01);
     }
 
-    private void followByPortals() {
+    private boolean followByPortals() {
+        if (!sConfig.followByPortals || lastSentinelLocation == null) {
+            return false;
+        }
         Portal portal = getNearestPortal(lastSentinelLocation);
         if (portal != null) {
+            if (group.hasGroup() && masterID != 0) {
+                eu.darkbot.api.game.group.GroupMember member = group.getMember(masterID);
+                if (member != null && !member.isDead()) {
+                    return false;
+                }
+            }
             portal.getTargetMap().ifPresentOrElse(
                     m -> this.bot.setModule(api.requireInstance(MapModule.class)).setTarget(m),
                     () -> lastSentinelLocation = null);
+            return true;
         } else {
             lastSentinelLocation = null;
         }
+        return false;
     }
 
     private void autoCloack() {
@@ -398,6 +407,10 @@ public class SentinelModule implements Module, Configurable<SentinelConfig>, Ins
                     groupLeaderID = m.getId();
                 }
                 masterID = m.getId();
+
+                if (heroapi.getMap() != null && m.getMapId() == heroapi.getMap().getId()) {
+                    lastSentinelLocation = m.getLocation();
+                }
                 if (m.getMapId() == heroapi.getMap().getId()) {
                     movement.moveTo(m.getLocation());
                     currentStatus = State.FOLLOWING_MASTER;

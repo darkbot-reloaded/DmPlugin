@@ -5,7 +5,6 @@ import com.deeme.types.config.ExtraKeyConditions;
 import com.deeme.types.suppliers.DefenseLaserSupplier;
 import com.github.manolo8.darkbot.Main;
 import com.github.manolo8.darkbot.config.Config.Loot.Sab;
-import com.github.manolo8.darkbot.core.api.DarkBoatAdapter;
 
 import eu.darkbot.api.PluginAPI;
 import eu.darkbot.api.config.ConfigSetting;
@@ -31,6 +30,7 @@ import eu.darkbot.api.managers.HeroAPI;
 import eu.darkbot.api.managers.HeroItemsAPI;
 import eu.darkbot.api.managers.MovementAPI;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Random;
@@ -148,7 +148,7 @@ public class ShipAttacker {
         if (!firstAttack) {
             firstAttack = true;
             sendAttack(1500, 5000, true);
-        } else if (!lastShot.equals(getAttackKey())) {
+        } else if (lastShot == null || !lastShot.equals(getAttackKey())) {
             sendAttack(250, 5000, true);
         } else if (!heroapi.isAttacking(target) || !heroapi.isAiming(target)) {
             sendAttack(1500, 5000, false);
@@ -167,8 +167,6 @@ public class ShipAttacker {
         if (normal) {
             lastShot = getAttackKey();
             API.keyboardClick(lastShot);
-        } else if (API instanceof DarkBoatAdapter) {
-            heroapi.triggerLaserAttack();
         } else if (target != null && target.isValid()) {
             target.trySelect(true);
         }
@@ -199,7 +197,7 @@ public class ShipAttacker {
     }
 
     public void vsMove() {
-        if (target != null) {
+        if (target != null && target.isValid()) {
             double distance = heroapi.getLocationInfo().distanceTo(target);
             Location targetLoc = target.getLocationInfo().destinationInTime(400);
             if (distance > 600) {
@@ -272,25 +270,10 @@ public class ShipAttacker {
     }
 
     public void goToMemberAttacked() {
-        GroupMember member = getMemberGroupAttacked();
+        GroupMember member = SharedFunctions.getMemberGroupAttacked(group, heroapi, configAPI);
         if (member != null) {
             movement.moveTo(member.getLocation());
         }
-    }
-
-    private GroupMember getMemberGroupAttacked() {
-        if (group.hasGroup()) {
-            for (GroupMember member : group.getMembers()) {
-                if (!member.isDead() && member.getMapId() == heroapi.getMap().getId() && member.isAttacked()
-                        && member.getTargetInfo() != null
-                        && member.getTargetInfo().getShipType() != 0 && !member.getTargetInfo().getUsername().isEmpty()
-                        && !SharedFunctions.isNpc(configAPI, member.getTargetInfo().getUsername())) {
-                    return member;
-
-                }
-            }
-        }
-        return null;
     }
 
     public GroupMember getClosestMember() {
@@ -317,16 +300,26 @@ public class ShipAttacker {
     }
 
     public Ship getEnemy(int maxDistance) {
-        if (heroapi.getMap().isPvp() || allPortals.stream().noneMatch(p -> heroapi.distanceTo(p) < 1500)) {
-            return allShips.stream()
-                    .filter(s -> (s.getEntityInfo().isEnemy() && !s.hasEffect(290)
-                            && s.getLocationInfo().distanceTo(heroapi) <= maxDistance)
-                            && !(s instanceof Pet)
-                            && !inGroup(s.getId()))
-                    .sorted(Comparator.comparingDouble(s -> s.getLocationInfo().distanceTo(heroapi))).findAny()
-                    .orElse(null);
-        }
-        return null;
+        return getEnemy(maxDistance, new ArrayList<>());
+    }
+
+    public Ship getEnemy(int maxDistance, ArrayList<Integer> playersToIgnore) {
+        boolean ableToAttack = heroapi.getMap().isPvp()
+                || allPortals.stream().noneMatch(p -> heroapi.distanceTo(p) < 1500);
+        return allShips.stream()
+                .filter(Ship::isValid)
+                .filter(s -> s.getId() != heroapi.getId()
+                        && s.getEntityInfo().isEnemy()
+                        && (ableToAttack || s.isAttacking())
+                        && !playersToIgnore.contains(s.getId())
+                        && !s.hasEffect(290)
+                        && !(s instanceof Pet)
+                        && !inGroup(s.getId())
+                        && movement.canMove(s)
+                        && s.getLocationInfo().distanceTo(heroapi) <= maxDistance)
+
+                .sorted(Comparator.comparingDouble(s -> s.getLocationInfo().distanceTo(heroapi))).findAny()
+                .orElse(null);
     }
 
     public void resetDefenseData() {
