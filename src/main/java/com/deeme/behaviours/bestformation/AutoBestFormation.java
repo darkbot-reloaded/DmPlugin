@@ -16,6 +16,7 @@ import eu.darkbot.api.extensions.Configurable;
 import eu.darkbot.api.extensions.Feature;
 import eu.darkbot.api.game.entities.Entity;
 import eu.darkbot.api.game.entities.Npc;
+import eu.darkbot.api.game.entities.Player;
 import eu.darkbot.api.game.entities.Portal;
 import eu.darkbot.api.game.items.ItemFlag;
 import eu.darkbot.api.game.items.SelectableItem.Formation;
@@ -79,7 +80,7 @@ public class AutoBestFormation implements Behavior, Configurable<BestFormationCo
 
     @Override
     public void onStoppedBehavior() {
-        if (config.tickStopped) {
+        if (hasOption(BehaviourOptions.TICK_STOPPED)) {
             onTickBehavior();
         }
     }
@@ -95,6 +96,20 @@ public class AutoBestFormation implements Behavior, Configurable<BestFormationCo
     }
 
     private Formation getBestFormation() {
+        if (hasOption(BehaviourOptions.RESPECT_NPC_FORMATION) && hasCustomFormation()) {
+            return null;
+        }
+
+        if (hasOption(BehaviourOptions.COPY_PLAYER_FORMATION)) {
+            Player target = heroapi.getLocalTargetAs(Player.class);
+            if (target != null) {
+                Formation targetFormation = target.getFormation();
+                if (hasFormation(targetFormation)) {
+                    return targetFormation;
+                }
+            }
+        }
+
         if (shoulUseVeteran()) {
             return Formation.VETERAN;
         }
@@ -194,14 +209,15 @@ public class AutoBestFormation implements Behavior, Configurable<BestFormationCo
 
     private boolean shoulUseVeteran() {
         if (hasFormation(Formation.VETERAN)) {
-            if (config.useVeteran || hasTag(ExtraNpcFlags.USE_VETERAN)) {
+            if (hasTag(ExtraNpcFlags.USE_VETERAN) || hasOption(BehaviourOptions.USE_VETERAN)) {
                 Lockable target = heroapi.getLocalTarget();
-                if (target != null && target.isValid() && target instanceof Npc) {
-                    return target.getHealth() != null
-                            && (target.getHealth().hpPercent() <= 0.15 && target.getHealth().getHp() < 200000);
+                if (target != null && target.isValid() && target instanceof Npc && target.getHealth() != null
+                        && (target.getHealth().hpPercent() <= 0.15 && target.getHealth().getHp() < 200000)) {
+                    return true;
                 }
             }
-            return heroapi.getMap() != null && heroapi.getMap().isGG() && allNpcs.isEmpty() && allPortals.isEmpty();
+            return heroapi.getMap() != null && heroapi.getMap().isGG() && allNpcs.isEmpty()
+                    && allPortals.isEmpty();
         }
         return false;
     }
@@ -222,6 +238,12 @@ public class AutoBestFormation implements Behavior, Configurable<BestFormationCo
                 && ((Npc) target).getInfo().hasExtraFlag(tag));
     }
 
+    private boolean hasCustomFormation() {
+        Lockable target = heroapi.getLocalTarget();
+        return (target != null && target.isValid() && target instanceof Npc
+                && ((Npc) target).getInfo().getFormation().isPresent());
+    }
+
     private boolean hasFormation(Formation formation) {
         if (config.formationsToUse.stream().anyMatch(s -> s.name().equals(formation.name()))) {
             if (availableFormations.contains(formation)) {
@@ -235,11 +257,26 @@ public class AutoBestFormation implements Behavior, Configurable<BestFormationCo
         return false;
     }
 
+    private boolean hasOption(BehaviourOptions option) {
+        if (config.options.stream().anyMatch(s -> s.name().equals(option.name()))) {
+            return true;
+        }
+
+        return false;
+    }
+
     private boolean isAttacking() {
         Entity target = heroapi.getLocalTarget();
-        return target != null && target.isValid() && heroapi.isAttacking() && target.distanceTo(heroapi) < 1000
-                && !(heroapi.getEffects() != null
-                        && heroapi.getEffects().toString().contains("76"));
+
+        if ((target instanceof Npc
+                && (hasOption(BehaviourOptions.VS_NPC) || hasTag(ExtraNpcFlags.USE_AUTO_BEST_FORMATION)))
+                || hasOption(BehaviourOptions.VS_PLAYERS)) {
+            return target != null && target.isValid() && heroapi.isAttacking() && target.distanceTo(heroapi) < 1000
+                    && !(heroapi.getEffects() != null
+                            && heroapi.getEffects().toString().contains("76"));
+        }
+
+        return false;
     }
 
     private boolean isFaster() {
