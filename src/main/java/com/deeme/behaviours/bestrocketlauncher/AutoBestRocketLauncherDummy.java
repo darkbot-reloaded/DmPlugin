@@ -4,8 +4,8 @@ import java.util.Arrays;
 
 import com.deeme.types.VerifierChecker;
 import com.deeme.types.backpage.Utils;
-import com.deemetool.behaviours.bestrocketlauncher.AutoBestRocketLauncher;
-import com.deemetool.behaviours.bestrocketlauncher.BestRocketLauncherConfig;
+import com.deemeplus.behaviours.bestrocketlauncher.AutoBestRocketLauncher;
+import com.deemeplus.behaviours.bestrocketlauncher.BestRocketLauncherConfig;
 import com.github.manolo8.darkbot.config.NpcExtraFlag;
 import com.github.manolo8.darkbot.core.itf.NpcExtraProvider;
 
@@ -32,10 +32,16 @@ public class AutoBestRocketLauncherDummy implements Behavior, Configurable<BestR
         if (!Arrays.equals(VerifierChecker.class.getSigners(), getClass().getSigners())) {
             throw new SecurityException();
         }
-        VerifierChecker.checkAuthenticity(auth);
-        Utils.discordDonorCheck(api.getAPI(ExtensionsAPI.class).getFeatureInfo(this.getClass()), auth.getAuthId());
 
-        this.privateBehaviour = new AutoBestRocketLauncher(api);
+        VerifierChecker.requireAuthenticity(auth);
+        ExtensionsAPI extensionsAPI = api.getAPI(ExtensionsAPI.class);
+        Utils.discordDonorCheck(extensionsAPI.getFeatureInfo(this.getClass()), auth.getAuthId());
+
+        try {
+            this.privateBehaviour = new AutoBestRocketLauncher(api);
+        } catch (Exception e) {
+            extensionsAPI.getFeatureInfo(this.getClass()).addFailure("Error", e.getMessage());
+        }
     }
 
     @Override

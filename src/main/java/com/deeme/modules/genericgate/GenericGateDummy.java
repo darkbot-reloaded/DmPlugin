@@ -9,8 +9,8 @@ import java.util.Arrays;
 
 import com.deeme.types.VerifierChecker;
 import com.deeme.types.backpage.Utils;
-import com.deemetool.modules.genericgate.Config;
-import com.deemetool.modules.genericgate.GenericGate;
+import com.deemeplus.modules.genericgate.Config;
+import com.deemeplus.modules.genericgate.GenericGate;
 import com.github.manolo8.darkbot.config.NpcExtraFlag;
 import com.github.manolo8.darkbot.core.itf.NpcExtraProvider;
 
@@ -33,10 +33,16 @@ public class GenericGateDummy implements Module, Configurable<Config>, NpcExtraP
         if (!Arrays.equals(VerifierChecker.class.getSigners(), getClass().getSigners())) {
             throw new SecurityException();
         }
-        VerifierChecker.checkAuthenticity(auth);
-        Utils.discordDonorCheck(api.getAPI(ExtensionsAPI.class).getFeatureInfo(this.getClass()), auth.getAuthId());
 
-        this.privateModule = new GenericGate(api);
+        VerifierChecker.requireAuthenticity(auth);
+        ExtensionsAPI extensionsAPI = api.getAPI(ExtensionsAPI.class);
+        Utils.discordDonorCheck(extensionsAPI.getFeatureInfo(this.getClass()), auth.getAuthId());
+
+        try {
+            this.privateModule = new GenericGate(api);
+        } catch (Exception e) {
+            extensionsAPI.getFeatureInfo(this.getClass()).addFailure("Error", e.getMessage());
+        }
     }
 
     @Override

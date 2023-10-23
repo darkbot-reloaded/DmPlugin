@@ -2,7 +2,7 @@ package com.deeme.tasks.discord;
 
 import com.deeme.types.VerifierChecker;
 import com.deeme.types.backpage.Utils;
-import com.deemetool.utils.Backpage;
+import com.deemeplus.utils.Backpage;
 import com.github.manolo8.darkbot.utils.Time;
 
 import eu.darkbot.api.PluginAPI;
@@ -45,7 +45,7 @@ public class Discord implements Task, Configurable<DiscordConfig> {
             throw new SecurityException();
         VerifierChecker.checkAuthenticity(auth);
 
-        Utils.showDonateDialog();
+        Utils.showDonateDialog(auth.getAuthId());
 
         this.api = api;
         this.bot = bot;
