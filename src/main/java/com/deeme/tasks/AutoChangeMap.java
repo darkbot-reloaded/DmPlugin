@@ -98,7 +98,9 @@ public class AutoChangeMap implements Task, Configurable<ChangeMapConfig> {
             return;
         }
 
-        List<String> accessibleMaps = star.getMaps().stream().filter(m -> !m.isGG()).map(GameMap::getName)
+        List<String> accessibleMaps = star.getMaps().stream()
+                .filter(m -> m.getShortName().matches("^([1-5]-[1-8]|[1-3]BL)$")) // Only general maps [1-5]-x and BL
+                .map(GameMap::getName)
                 .collect(Collectors.toList());
 
         for (String map : accessibleMaps) {
