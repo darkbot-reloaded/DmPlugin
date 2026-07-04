@@ -13,6 +13,7 @@
 		"com.deeme.modules.genericgate.GenericGateDummy",
 		"com.deeme.modules.quest.QuestModuleDummy",
 		"com.deeme.modules.guiexecutor.GuiExecutor",
+		"com.deeme.modules.specificgate.SpecificGateModule",
 		"com.deeme.tasks.SkylabSender",
 		"com.deeme.tasks.WeeklySchedule",
 		"com.deeme.tasks.AutoChangeMap",
