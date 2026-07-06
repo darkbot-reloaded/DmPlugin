@@ -1,7 +1,7 @@
 {
 	"name": "DmPlugin",
 	"author": "Dm94Dani",
-	"version": "2.11.2",
+	"version": "2.12.0",
 	"minVersion": "1.131.6 beta 3",
 	"supportedVersion": "1.132.0",
 	"basePackage": "com.deeme",
@@ -19,6 +19,7 @@
 		"com.deeme.tasks.HitacFollower",
 		"com.deeme.tasks.externalchat.ExternalChat",
 		"com.deeme.tasks.AutoShopDummy",
+		"com.deeme.tasks.mcp.McpBridge",
 		"com.deeme.behaviours.Others",
 		"com.deeme.behaviours.defense.DefenseMode",
 		"com.deeme.behaviours.CustomEvents",
