@@ -33,7 +33,8 @@ McpBridge            @Feature + Task + Configurable<McpConfig> + Installable. Wi
 │  ├─ ProfileListResource  bot://profiles
 │  ├─ ConfigValueResource  bot://config/value?path=...
 │  ├─ ConfigTreeResource   bot://config/tree
-│  ├─ InspectResource      bot://inspect?root=...&path=...&max_depth=...&max_items=... or ?address=0x...
+│  ├─ InspectResource      bot://inspect?address=0x... (address-based only)
+│  ├─ AddressesResource    bot://addresses (managers/guis/facades addresses for bot://inspect)
 │  ├─ NpcConfigResource    bot://config/npc
 │  ├─ EntitiesResource     mcp://entities — live NPCs, players, pets, boxes, mines, portals
 │  ├─ PetResource          mcp://pet — PET gear, locator, stats
@@ -43,6 +44,7 @@ McpBridge            @Feature + Task + Configurable<McpConfig> + Installable. Wi
 │  ├─ InventoryResource    mcp://inventory — items in inventory
 │  ├─ NpcEventResource     mcp://npc_event — NPC event status (generic + agatus)
 │  ├─ OreResource          mcp://ores — owned amounts and upgrade slots
+│  ├─ LogResource          mcp://log — DarkBot session log (tail/filter/list)
 │  └─ ConditionSchemaResource  conditions://schema
 ├─ tools/            McpTool interface implementations:
 │  ├─ BotControlTool    toggle_pause — pause/resume bot
@@ -167,9 +169,10 @@ Self-check runner (no JUnit): `ObjectInspectorSelfCheck` — `java -ea -cp ... c
 | `bot://config/value?path=...`     | Config value reader                                  |
 | `bot://config/tree`               | Config tree navigator (supports path drilling)       |
 | `bot://config/npc`                | NPC configuration (list all or get by name)          |
-| `bot://inspect?root=...&path=...` | Object inspector (supports `max_depth`, `max_items`) |
 | `bot://inspect?address=0x...` | Address-based object inspector (mirrors DarkBot's address box) |
+| `bot://addresses`                 | Live addresses for managers/guis/facades (ready for `bot://inspect`)      |
 | `conditions://schema`             | Condition DSL schema (all types, values, enums)      |
+| `mcp://log`                      | DarkBot session log reader (tail, filter, list)      |
 
 ## Adding a new tool / resource
 
